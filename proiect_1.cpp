@@ -2,22 +2,19 @@
 
 Aplicatia gestioneaza rezervarile unui hotel.
 
-Camerele sunt citite din fisierul "camere.txt", care cuprinde: numarul camerei, pretul/noapte si daca e ocupata sau nu. 
-Utilizatorul introduce de la tastatura datele clientului si numarul de zile pentru a realiza o rezervare.
+Datele de intrare sunt generate direct in program si consta in camere (numar, pret/noapte, stare de ocupare) si clienti (nume, telefon). 
 
-Aplicatia are trei optiuni. Prima optiune este afisarea tuturor camerelor si informatii legate de acestea. 
-A doua optiune permite realizarea unei rezervari, unde trebuie introduse date despre client si perioada rezervarii, care vor fi introduse in fisierul "rezervari.txt". 
-De asemnea, se calculeaza si costul total al rezervarii si se actualizeaza informatiile despre camere. A treia optiune este cea de iesire din aplicatie.
+Aplicatia permite afisarea camerelor existente si realizarea unei rezervari prin alegerea unei camere libere si a unui client deja existent. 
+In urma rezervarii camera devine ocupata, iar costul total este calculat si afisat. Programul se poate inchide la alegerea utilizatorului.
 
 */
 #include <iostream>
-#include <string>
-#include <fstream>
-#include <vector>
+#include <cstring>
 class Camera{
     int numar;
     double pret;
     bool ocupat;
+    static int nrCamere;
 public:
     Camera();
     Camera(int numar, double pret, bool ocupat);
@@ -28,25 +25,20 @@ public:
     int getNumar() const { return numar; }
     double getPret() const { return pret; }
     bool getOcupat() const { return ocupat; }
-
-    void ocupa(){ ocupat = true; };
-
+    static int getNrCamere(){ return nrCamere; }
+    inline void ocupa(){ ocupat = true; };
     friend std::ostream& operator<<(std::ostream& out, const Camera& c);
-    friend std::istream& operator>>(std::istream& in, Camera& c);
 };
 
 class Client{
-    std::string nume;
-    std::string telefon;
+    char nume[50];
+    char telefon[20];
 public:
     Client();
-    Client(const std::string& nume, const std::string& telefon);
+    Client(const char* nume, const char* telefon);
     Client(const Client& c);
     Client& operator=(const Client& c);
     ~Client();
-
-    std::string getNume() const { return nume; }
-    std::string getTelefon() const { return telefon; }
 
     friend std::ostream& operator<<(std::ostream& out, const Client& c);
 };
@@ -68,16 +60,18 @@ public:
     };
     friend std::ostream& operator<<(std::ostream& out, const Rezervare& r);
 };
-
+int Camera::nrCamere = 0;
 Camera::Camera(){
     numar = 0;
     pret = 0;
     ocupat = false;
+    nrCamere++;
 }
 Camera::Camera(int numar, double pret, bool ocupat){
     this->numar = numar;
     this->pret = pret;
     this->ocupat = ocupat;
+    nrCamere++;
 }
 Camera::Camera(const Camera& c){
     numar = c.numar;
@@ -97,27 +91,23 @@ std::ostream& operator<<(std::ostream& out, const Camera& c){
     out << "Camera -> numar: " << c.numar << "; pret/noapte: " << c.pret << " lei; ocupata: " << (c.ocupat ? "da" : "nu");
     return out;
 }
-std::istream& operator>>(std::istream& in, Camera& c){
-    in >> c.numar >> c.pret >> c.ocupat;
-    return in;
-}
 
 Client::Client(){
-    nume = "";
-    telefon = "";
+    strcpy(nume, "");
+    strcpy(telefon, "");
 }
-Client::Client(const std::string& nume, const std::string& telefon){
-    this->nume = nume;
-    this->telefon = telefon;
+Client::Client(const char* nume, const char* telefon){
+        strcpy(this->nume, nume);
+        strcpy(this->telefon, telefon);
 }
 Client::Client(const Client& c){
-    nume = c.nume;
-    telefon = c.telefon;
+    strcpy(nume, c.nume);
+    strcpy(telefon, c.telefon);
 }
 Client& Client::operator=(const Client& c){
     if(this != &c){
-        nume = c.nume;
-        telefon = c.telefon;
+        strcpy(nume, c.nume);
+        strcpy(telefon, c.telefon);
     }
     return *this;
 }
@@ -127,7 +117,11 @@ std::ostream& operator<<(std::ostream& out, const Client& c){
     return out;
 }
 
-Rezervare::Rezervare(const Client& client, const Camera& camera, int zile): client(client), camera(camera), zile(zile){}
+Rezervare::Rezervare(const Client& client, const Camera& camera, int zile){
+    this->client = client;
+    this->camera = camera;
+    this->zile = zile;
+}
 Rezervare::Rezervare(const Rezervare& r): client(r.client), camera(r.camera), zile(r.zile){}
 Rezervare& Rezervare::operator=(const Rezervare& r){
     if(this != &r){
@@ -142,75 +136,53 @@ std::ostream& operator<<(std::ostream& out, const Rezervare& r){
     out << "Rezervare:\n" 
     << r.client << "\n" 
     << "Camera -> numar: " << r.camera.getNumar() << "; pret/noapte: " << r.camera.getPret() << " lei; zile: " << r.zile << "\n"
-    << "Cost total: " << r.calculeazaCost(r.camera.getPret()) << " lei";
+    << "Cost total: " << r.calculeazaCost(r.camera.getPret()) << " lei\n";
     return out;
 }
 
-void incarcaCamere(std::vector<Camera>& camere){
-    std::ifstream fin("camere.txt");
-    if(!fin){
-        std::cout << "Eroare la deschiderea fisierului camere.txt\n";
-        return;
-    }
-    Camera c;
-    while(fin >> c){
-        camere.push_back(c);
-    }
-    fin.close();
-}
-void salveazaCamere(const std::vector<Camera>& camere){
-    std::ofstream fout("camere.txt");
-    if(!fout){
-        std::cout << "Eroare la scrierea fisierului camere.txt\n";
-        return;
-    }
-    for(int i = 0; i < camere.size(); i++){
-        fout << camere[i].getNumar() << " " << camere[i].getPret() << " " << camere[i].getOcupat() << "\n";
-    }
-    fout.close();
-}
-void afiseazaCamere(const std::vector<Camera>& camere){
-    for(int i = 0; i < camere.size(); i++){
-        std::cout << camere[i] << "\n";
+void afiseazaCamere(Camera camere[], int n){
+    for(int i = 0; i < n; i++){
+        std::cout << i+1 << ". " << camere[i] << "\n";
     }
 }
-void faRezervare(std::vector<Camera>& camere){
-    int i;
+void faRezervare(Camera camere[], int n, Client clienti[], int m){
+    int camI, clientI;
     std::cout << "Alege camera: ";
-    std::cin >> i;
-    i--;
-    if(i < 0 || i >= camere.size()){
+    std::cin >> camI;
+    camI--;
+    if(camI < 0 || camI >= n){
         std::cout << "Index invalid!\n";
         return;
     }
-    if(camere[i].getOcupat()){
+    if(camere[camI].getOcupat()){
         std::cout << "Camera este deja ocupata!\n";
         return;
     }
-    std::string nume, telefon;
-    int zile;
-    std::cout << "Nume client: ";
-    std::cin >> nume;
-    std::cout << "Telefon: ";
-    std::cin >> telefon;
-    std::cout << "Numar zile: ";
-    std::cin >> zile;
-    Client client(nume, telefon);
-    Rezervare rezervare(client, camere[i], zile);
-    camere[i].ocupa();
-    std::ofstream fout("rezervari.txt", std::ios::app);
-    if(fout){
-        fout << rezervare << "\n";
-        fout.close();
+    std::cout << "Alege client:\n";
+    for(int i = 0; i < m; i++){
+        std::cout << i+1 << ". " << clienti[i] << "\n";
     }
-    salveazaCamere(camere);
-    std::cout << "Rezervare realizata!\n";
-    std::cout << "Cost total: " << rezervare.calculeazaCost(camere[i].getPret()) << " lei\n";
+    std::cin >> clientI;
+    clientI--;
+    if(clientI < 0 || clientI >= m){
+        std::cout << "Index invalid!\n";
+        return;
+    }
+    Rezervare r(clienti[clientI], camere[camI], 3);
+    camere[camI].ocupa();
+    std::cout << "\nRezervare realizata!\n";
+    std::cout << r;
 }
-
 int main(){
-    std::vector<Camera> camere;
-    incarcaCamere(camere);
+    Camera camere[3] = {
+        Camera(1, 100, false),
+        Camera(2, 150, false),
+        Camera(3, 200, true)
+    };
+    Client clienti[2] = {
+        Client("Ionel", "0724592109"),
+        Client("Maria", "0712345678")
+    };
     int optiune;
     do{
         std::cout << "\n------- MENIU -------\n";
@@ -221,10 +193,11 @@ int main(){
         std::cin >> optiune;
         switch(optiune){
             case 1:
-                afiseazaCamere(camere);
+                std::cout << "Numar total camere: " << Camera::getNrCamere() << "\n";
+                afiseazaCamere(camere, 3);
                 break;
             case 2:
-                faRezervare(camere);
+                faRezervare(camere, 3, clienti, 2);
                 break;
             case 0:
                 break;
@@ -234,3 +207,4 @@ int main(){
     }while(optiune != 0);
     return 0;
 }
+
